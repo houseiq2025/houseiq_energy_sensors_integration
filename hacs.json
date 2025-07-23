@@ -1,0 +1,9 @@
+{
+  "name": "HouseIQ Energy",
+  "content_in_root": false,
+  "domain": "houseiq_energy",
+  "documentation": "https://github.com/houseiq2025/houseiq_energy_sensors_integration/README.md",
+  "homeassistant": "2025.7.2",
+  "render_readme": true,
+  "iot_class": "calculated"
+}
