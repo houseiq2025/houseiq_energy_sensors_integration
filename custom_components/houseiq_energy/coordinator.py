@@ -19,9 +19,9 @@ class EnergyCoordinator(DataUpdateCoordinator):
         hass.bus.async_listen("state_changed", self._state_changed)
 
         async_track_utc_time_change(hass, self._reset_daily, hour=0, minute=0, second=0)
-        async_track_utc_time_change(hass, self._reset_weekly, weekday=0, hour=0, minute=0, second=0)
-        async_track_utc_time_change(hass, self._reset_monthly, day=1, hour=0, minute=0, second=0)
-        async_track_utc_time_change(hass, self._reset_yearly, month=1, day=1, hour=0, minute=0, second=0)
+        async_track_utc_time_change(hass, self._reset_weekly, hour=0, minute=0, second=0)
+        async_track_utc_time_change(hass, self._reset_monthly, hour=0, minute=0, second=0)
+        async_track_utc_time_change(hass, self._reset_yearly, hour=0, minute=0, second=0)
 
     @callback
     def _state_changed(self, event):
@@ -72,18 +72,24 @@ class EnergyCoordinator(DataUpdateCoordinator):
 
     @callback
     def _reset_weekly(self, now):
+        if now.weekday() != 0:
+            return
         self.data["weekly"] = 0.0
         self.last_reset["weekly"] = now
         self.async_set_updated_data(self.data)
 
     @callback
     def _reset_monthly(self, now):
+        if now.day != 1:
+            return
         self.data["monthly"] = 0.0
         self.last_reset["monthly"] = now
         self.async_set_updated_data(self.data)
 
     @callback
     def _reset_yearly(self, now):
+        if not (now.month == 1 and now.day == 1):
+            return
         self.data["yearly"] = 0.0
         self.last_reset["yearly"] = now
         self.async_set_updated_data(self.data)

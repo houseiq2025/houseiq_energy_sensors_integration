@@ -1,59 +1,49 @@
-
 import logging
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.const import UnitOfEnergy
-
-from .const import CYCLES, CONF_SOURCE_SENSOR, DOMAIN
+from .const import CYCLES, CONF_SOURCE_SENSOR
 from .coordinator import EnergyCoordinator
+from homeassistant.const import UnitOfEnergy
 
 _LOGGER = logging.getLogger(__name__)
 
-
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up HouseIQ Energy cycle sensors for this config entry."""
-    src_sensor = entry.data[CONF_SOURCE_SENSOR]
-
-    # Make (or reuse) one coordinator per entry
-    coordinator = hass.data.setdefault(DOMAIN, {}).get(entry.entry_id)
-    if coordinator is None:
-        coordinator = EnergyCoordinator(hass, src_sensor)
-        hass.data[DOMAIN][entry.entry_id] = coordinator
-
-    entities = [CycleEnergySensor(coordinator, cycle) for cycle in CYCLES]
+async def async_setup_entry(hass: HomeAssistant, entry, async_add_entities: AddEntitiesCallback):
+    src = entry.data[CONF_SOURCE_SENSOR]
+    coordinator = EnergyCoordinator(hass, src)
+    src_sensor = src
+    base = src_sensor.split(".")[1] if "." in src_sensor else src_sensor
+    entities = [CycleEnergySensor(coordinator, cycle, base) for cycle in CYCLES]
     async_add_entities(entities, update_before_add=True)
 
-
-class CycleEnergySensor(Entity):
-    """Accumulated energy for a specific cycle (daily, weekly, etc.)."""
-
-    _attr_device_class = "energy"
-    _attr_state_class = "total"
-    _attr_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_should_poll = True  # simple polling to refresh UI
-
-    def __init__(self, coordinator: EnergyCoordinator, cycle: str) -> None:
+class CycleEnergySensor(RestoreEntity):
+    """Sensor for a specific energy cycle."""
+    def __init__(self, coordinator: EnergyCoordinator, cycle: str, base: str) -> None:
         self.coordinator = coordinator
         self.cycle = cycle
-        self._attr_name = f"HouseIQ {cycle.capitalize()} Energieproductie"
-        self._attr_unique_id = f"houseiq_{cycle}_energieproductie"
+        self._base = base
+        self._attr_name = f"HouseIQ {cycle.capitalize()} {base.replace('_', ' ')}"
+        self._attr_unique_id = f"houseiq_{base}_{cycle}"
+        self._attr_device_class = "energy"
+        self._attr_state_class = "total"
+        self._attr_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+
+    async def async_added_to_hass(self):
+        """Register callbacks."""
+        self.coordinator.async_add_listener(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self):
+        """Unregister callbacks."""
+        self.coordinator.async_remove_listener(self.async_write_ha_state)
 
     @property
-    def state(self) -> str | None:
-        """Return current accumulated kWh for this cycle."""
-        return f"{self.coordinator.data.get(self.cycle, 0.0):.3f}"
+    def available(self) -> bool:
+        return self.cycle in self.coordinator.data
 
     @property
-    def extra_state_attributes(self) -> dict:
-        """Expose the last reset timestamp."""
-        return {"last_reset": self.coordinator.last_reset.get(self.cycle)}
+    def state(self):
+        return f"{self.coordinator.data[self.cycle]:.3f}"
 
-    async def async_update(self) -> None:
-        """No explicit update required; value pulled from coordinator."""
-        # Coordinator updates its own data; sensor just reflects that.
-        return
+    @property
+    def extra_state_attributes(self):
+        return {"last_reset": self.coordinator.last_reset[self.cycle]}
