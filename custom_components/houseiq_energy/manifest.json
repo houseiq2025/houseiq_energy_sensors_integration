@@ -2,10 +2,10 @@
   "domain": "houseiq_energy",
   "name": "HouseIQ Energy",
   "version": "1.0.0",
-  "documentation": "https://github.com/houseiq/houseiq_energy",
+  "documentation": "https://github.com/houseiq2025/houseiq_energy_sensors_integration",
   "requirements": [],
   "dependencies": [],
   "config_flow": true,
-  "platforms": ["sensor"],
-  "codeowners": ["@youruser"]
+  "platforms": ["sensor"],    
+  "codeowners": ["@houseiq2025"]
 }
